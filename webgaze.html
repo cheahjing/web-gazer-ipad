@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bird Study: Research Grade Logger</title>
+  <script src="https://cdn.jsdelivr.net/npm/webgazer@2.1.1/dist/webgazer.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f8fbff;
+      font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #app-viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #stage {
+      position: relative;
+      width: min(85vw, 1180px);
+      height: min(80vh, 820px);
+      background: #ffffff;
+      border: 8px solid #0077be;
+      border-radius: 25px;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    #webgazerGazeDot {
+      z-index: 2147483647 !important;
+      border: 2px solid white !important;
+    }
+
+    .fish-target {
+      position: absolute;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      width: 120px;
+      height: 120px;
+      transform: translate(-50%, -50%);
+      font-size: 70px;
+      z-index: 1000;
+      transition: filter 0.2s, transform 0.2s;
+      cursor: default;
+      background: transparent !important;
+      outline: none !important;
+      user-select: none;
+    }
+
+    .fish-red {
+      filter: grayscale(1) sepia(1) saturate(8) hue-rotate(-50deg);
+      opacity: 0.7;
+    }
+
+    .fish-blue {
+      filter: none;
+      opacity: 1;
+      cursor: pointer;
+    }
+
+    #boss-fish {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 140px;
+      z-index: 1200;
+      display: none;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .boss-active {
+      display: flex !important;
+      opacity: 1 !important;
+    }
+
+    #countdown-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.8);
+      z-index: 1500;
+      font-size: 150px;
+      color: #ff4444;
+      font-weight: bold;
+    }
+
+    #victory-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 10px solid #ffd700;
+      border-radius: 30px;
+      padding: 40px;
+      text-align: center;
+      z-index: 2000;
+      display: none;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    }
+
+    #video-area, #player {
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    #game-instr {
+      position: absolute;
+      top: 15px;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: #0077be;
+      z-index: 1100;
+      font-weight: bold;
+    }
+
+    #debug-bar {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: #333;
+      color: white;
+      padding: 10px 20px;
+      z-index: 2147483646;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      font-family: monospace;
+      font-size: 11px;
+      align-items: center;
+    }
+
+    .status-on {
+      color: #00ff00;
+      font-weight: bold;
+    }
+
+    .status-off {
+      color: #ff4444;
+      font-weight: bold;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2147483645;
+      text-align: center;
+    }
+
+    #camVideo {
+      display: none;
+    }
+
+    #video-loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 3000;
+      text-align: center;
+      font-size: 28px;
+      color: #0077be;
+      font-weight: bold;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 6px solid #cfefff;
+      border-top: 6px solid #0077be;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #video-error {
+      display: none;
+      margin-top: 15px;
+      color: #cc0000;
+      font-size: 18px;
+      font-weight: normal;
+      max-width: 80%;
+    }
+
+    #video-debug {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #444;
+      font-weight: normal;
+      max-width: 85%;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 1024px) {
+      #stage {
+        width: min(94vw, 980px);
+        height: min(72vh, 700px);
+        border-width: 6px;
+        border-radius: 18px;
+      }
+
+      #game-instr {
+        top: 10px;
+        font-size: 20px;
+        padding: 0 12px;
+        box-sizing: border-box;
+      }
+
+      #boss-fish {
+        font-size: 110px;
+      }
+
+      #countdown-overlay {
+        font-size: 110px;
+      }
+
+      .fish-target {
+        width: 92px;
+        height: 92px;
+        font-size: 54px;
+      }
+
+      #victory-modal {
+        width: min(82vw, 460px);
+        padding: 28px 22px;
+        border-width: 8px;
+        box-sizing: border-box;
+      }
+
+      #debug-bar {
+        gap: 10px 14px;
+        padding: 8px 12px;
+        font-size: 10px;
+      }
+
+      #overlay h1 {
+        font-size: 30px;
+        margin: 0 18px 12px;
+      }
+
+      #overlay p {
+        font-size: 18px;
+        margin: 0 18px 16px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      #stage {
+        width: 96vw;
+        height: 68vh;
+      }
+
+      #debug-bar {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="debug-bar">
+  <span>PID: <b id="disp-pid">--</b></span>
+  <span>Gaze: <span id="disp-screen" class="status-off">OUT</span></span>
+  <span>FACE: <span id="dbgFace">--</span></span>
+  <span>SYM: <span id="dbgSym">--</span></span>
+  <span>CAM: <span id="cam-recording-status" class="status-off">IDLE</span></span>
+  <span style="border-left: 1px solid #666; padding-left: 10px;">
+    MANUAL: <span id="manual-status" class="status-on">ENGAGED (↑)</span>
+  </span>
+  <button onclick="terminateSession()" style="margin-left:auto; cursor:pointer; background:#ff4444; color:white; border:none; padding:4px 12px; border-radius:4px; font-weight:bold;">⏹ Stop & Save</button>
+  <button id="stop-webcam-btn" onclick="stopWebcamRecording()" style="display:none; cursor:pointer; background:#ff9800; color:white; border:none; padding:4px 12px; border-radius:4px; font-weight:bold;">Stop Webcam</button>
+</div>
+
+<div id="app-viewport">
+  <div id="stage">
+    <div id="game-area" style="display:none; width:100%; height:100%; background:#ffffff; position:relative;">
+      <div id="game-instr">Wait for Blue... then catch it!</div>
+      <div id="countdown-overlay">3</div>
+      <div id="boss-fish">🦑</div>
+
+      <div id="victory-modal">
+        <div style="font-size: 100px;">🏆</div>
+        <h2>GREAT JOB!</h2>
+        <p style="font-size: 24px;">Quality Score: <b id="final-score-display">--</b>%</p>
+        <button onclick="closeVictory()" style="padding: 15px 40px; background: #ffd700; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">WATCH BIRDS 🐦</button>
+      </div>
+    </div>
+
+    <div id="video-area" style="display:none;">
+      <div id="player"></div>
+    </div>
+
+    <div id="video-loading-overlay">
+      <div class="spinner"></div>
+      <div id="video-loading-text">Loading video...</div>
+      <div id="video-error"></div>
+      <div id="video-debug"></div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <h1>🌊 Research Session</h1>
+    <p id="init-msg">Initializing Trackers...</p>
+    <button id="startBtn" onclick="initExperience()" style="display:none; padding:20px 60px; font-size:1.5rem; cursor:pointer; background:#0077be; color:white; border:none; border-radius:50px; font-weight:bold;">START</button>
+  </div>
+</div>
+
+<video id="camVideo" autoplay playsinline muted></video>
+
+<script type="module">
+  import { FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs";
+
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbytdM7UB1IrDmA4qK3qdQWMR5ZXgq3xBtZyfPH4c-bEK98oq-QjbvBCUKlHnYO4HgWINw/exec";
+
+  function generateSessionId() {
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const HH = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const SS = String(now.getSeconds()).padStart(2, "0");
+    const randomSuffix = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+    return `sess_${YYYY}${MM}${DD}_${HH}${mm}${SS}_${randomSuffix}`;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const PID = params.get("pid") || "P001";
+  const VID = params.get("vid") || "V01";
+  const YT_ID = params.get("yt") || "905QNpTukIU";
+  const DRIVE_FOLDER_ID = params.get("driveFolderId") || "";
+  const CSV_FOLDER_ID = params.get("csvFolderId") || DRIVE_FOLDER_ID;
+  const WEBCAM_FOLDER_ID = params.get("webcamFolderId") || DRIVE_FOLDER_ID;
+  const IS_IPAD_BROWSER =
+    /iPad/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const SESSION_ID = generateSessionId();
+  const FULL_FILENAME = `${PID}_${VID}_${SESSION_ID}`;
+
+  document.getElementById("disp-pid").innerText = PID;
+
+  let csvData = [[
+    "timestamp",
+    "session_id",
+    "participant_id",
+    "video_id",
+    "youtube_id",
+    "video_time",
+    "gaze_x",
+    "gaze_y",
+    "on_screen",
+    "face_detected",
+    "face_centered",
+    "face_count",
+    "face_width",
+    "face_height",
+    "detection_confidence",
+    "head_symmetry",
+    "calibration_score",
+    "manual_engagement"
+  ]];
+
+  let currentGaze = { x: 0, y: 0 };
+  let faceState = { detected: 0, centered: 0, count: 0, width: 0, height: 0, confidence: 0, symmetry: 0 };
+  let manualEngagement = 1;
+  let player = null;
+  let isRecording = false;
+  let hasVideoStarted = false;
+  let faceDetector = null;
+  let finalAccuracy = 0;
+  let currentPointIndex = 0;
+  let clickCount = 0;
+  let canClick = false;
+  let isBonusRound = false;
+  let logInterval = null;
+  let youtubeApiLoaded = false;
+  let youtubePlayerReady = false;
+  let youtubeScriptInjected = false;
+  let cameraStream = null;
+  let webcamRecorder = null;
+  let webcamChunks = [];
+  let webcamMimeType = "";
+  let webcamUploadAttempted = false;
+  let csvSaved = false;
+
+  const points = [[15,15],[85,15],[50,15],[15,50],[50,50],[85,50],[15,85],[50,85],[85,85]];
+  const bonusPoints = [[12,12], [88,12], [12,88], [88,88]];
+
+  function setVideoDebug(msg) {
+    document.getElementById("video-debug").innerText = msg;
+    console.log(msg);
+  }
+
+  function setCameraRecordingStatus(label, isActive) {
+    const el = document.getElementById("cam-recording-status");
+    el.innerText = label;
+    el.className = isActive ? "status-on" : "status-off";
+  }
+
+  function getSupportedRecorderMimeType() {
+    if (!globalThis.MediaRecorder) return "";
+
+    const preferredTypes = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4"
+    ];
+
+    return preferredTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
+  }
+
+  function downloadBlob(blob, filename) {
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = String(reader.result || "");
+        resolve(result.split(",")[1] || "");
+      };
+      reader.onerror = () => reject(reader.error || new Error("Failed to read blob."));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function postJsonPayload(payload) {
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async function uploadWebcamToAppsScript(blob, extension) {
+    const base64Data = await blobToBase64(blob);
+
+    const payload = {
+      kind: "webcam_video",
+      fileName: `${FULL_FILENAME}_webcam.${extension}`,
+      mimeType: blob.type || "video/webm",
+      participantId: PID,
+      videoId: VID,
+      sessionId: SESSION_ID,
+      youtubeId: YT_ID,
+      driveFolderId: WEBCAM_FOLDER_ID,
+      dataBase64: base64Data
+    };
+
+    await postJsonPayload(payload);
+  }
+
+  async function uploadCsvToAppsScript(csvContent) {
+    const payload = {
+      kind: "csv_data",
+      fileName: `${FULL_FILENAME}.csv`,
+      participantId: PID,
+      videoId: VID,
+      sessionId: SESSION_ID,
+      youtubeId: YT_ID,
+      driveFolderId: CSV_FOLDER_ID,
+      csvText: csvContent
+    };
+
+    await postJsonPayload(payload);
+  }
+
+  async function saveWebcamRecording() {
+    if (!webcamChunks.length) return;
+
+    const extension = webcamMimeType.includes("mp4") ? "mp4" : "webm";
+    const blob = new Blob(webcamChunks, { type: webcamMimeType || "video/webm" });
+    downloadBlob(blob, `${FULL_FILENAME}_webcam.${extension}`);
+
+    if (IS_IPAD_BROWSER) {
+      console.log("iPad detected. Webcam recording saved locally only.");
+      return;
+    }
+
+    if (!WEBCAM_FOLDER_ID || webcamUploadAttempted) return;
+
+    webcamUploadAttempted = true;
+
+    try {
+      await uploadWebcamToAppsScript(blob, extension);
+      alert("Webcam recording saved locally and upload was sent to Google Drive.");
+    } catch (err) {
+      console.error("Webcam upload failed", err);
+      alert("Webcam recording was saved locally, but Drive upload failed: " + err.message);
+    }
+  }
+
+  function saveCsvResults() {
+    if (csvSaved) return;
+    csvSaved = true;
+
+    const csvContent = csvData.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    downloadBlob(blob, `${FULL_FILENAME}.csv`);
+
+    if (!CSV_FOLDER_ID) {
+      console.warn("CSV upload skipped because no csvFolderId or driveFolderId was provided.");
+      setVideoDebug("CSV saved locally only. No csvFolderId was provided.");
+      return;
+    }
+
+    console.log("Uploading CSV to Drive folder:", CSV_FOLDER_ID);
+    setVideoDebug("Uploading CSV to Drive...");
+
+    uploadCsvToAppsScript(csvContent).then(() => {
+      console.log("CSV upload sent for " + FULL_FILENAME);
+      setVideoDebug("CSV upload sent.");
+    }).catch((err) => {
+      console.error("CSV upload failed", err);
+      setVideoDebug("CSV upload failed: " + err.message);
+    });
+  }
+
+  function stopWebcamRecordingInternal() {
+    if (webcamRecorder && webcamRecorder.state !== "inactive") {
+      webcamRecorder.stop();
+      return true;
+    }
+    return false;
+  }
+
+  window.stopWebcamRecording = function () {
+    const stopped = stopWebcamRecordingInternal();
+    if (!stopped) {
+      alert("Webcam recording is not active.");
+    }
+  };
+
+  function startWebcamRecording() {
+    if (!cameraStream || webcamRecorder?.state === "recording") return;
+
+    webcamMimeType = getSupportedRecorderMimeType();
+    webcamChunks = [];
+
+    try {
+      webcamRecorder = webcamMimeType
+        ? new MediaRecorder(cameraStream, { mimeType: webcamMimeType })
+        : new MediaRecorder(cameraStream);
+    } catch (err) {
+      console.error("Unable to create MediaRecorder", err);
+      setCameraRecordingStatus("UNAVAILABLE", false);
+      alert("Webcam recording could not start in this browser: " + err.message);
+      return;
+    }
+
+    webcamRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        webcamChunks.push(event.data);
+      }
+    };
+
+    webcamRecorder.onerror = (event) => {
+      console.error("Webcam recorder error", event);
+      setCameraRecordingStatus("ERROR", false);
+    };
+
+    webcamRecorder.onstop = async () => {
+      setCameraRecordingStatus("STOPPED", false);
+      document.getElementById("stop-webcam-btn").style.display = "none";
+      await saveWebcamRecording();
+    };
+
+    webcamRecorder.start(1000);
+    setCameraRecordingStatus("REC", true);
+    document.getElementById("stop-webcam-btn").style.display = "inline-block";
+  }
+
+  function showVideoLoading(message = "Loading video...") {
+    document.getElementById("video-loading-text").innerText = message;
+    document.getElementById("video-error").style.display = "none";
+    document.getElementById("video-loading-overlay").style.display = "flex";
+  }
+
+  function hideVideoLoading() {
+    document.getElementById("video-loading-overlay").style.display = "none";
+  }
+
+  function showVideoError(message) {
+    const err = document.getElementById("video-error");
+    err.innerText = message;
+    err.style.display = "block";
+  }
+
+  function loadYouTubeApi() {
+    if (youtubeScriptInjected) return;
+    youtubeScriptInjected = true;
+
+    setVideoDebug("Injecting YouTube API script...");
+
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    script.onload = () => setVideoDebug("YouTube API script loaded.");
+    script.onerror = () => {
+      setVideoDebug("Failed to load YouTube API script.");
+      showVideoError("Could not load the YouTube API script.");
+    };
+    document.head.appendChild(script);
+  }
+
+  globalThis.onYouTubeIframeAPIReady = function () {
+    youtubeApiLoaded = true;
+    setVideoDebug("YouTube API callback fired.");
+
+    player = new YT.Player("player", {
+      videoId: YT_ID,
+      width: "100%",
+      height: "100%",
+      playerVars: {
+        controls: 0,
+        disablekb: 1,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1
+      },
+      events: {
+        onReady: function () {
+          youtubePlayerReady = true;
+          setVideoDebug("YouTube player ready.");
+        },
+        onStateChange: function (e) {
+          setVideoDebug("YouTube state changed: " + e.data);
+
+          if (e.data === YT.PlayerState.PLAYING) {
+            hideVideoLoading();
+            if (!hasVideoStarted) {
+              hasVideoStarted = true;
+              startWebcamRecording();
+            }
+            if (!isRecording) isRecording = true;
+            if (!logInterval) logInterval = setInterval(logRow, 1000);
+          }
+
+          if (e.data === YT.PlayerState.BUFFERING) {
+            showVideoLoading("Buffering video...");
+          }
+
+          if (e.data === YT.PlayerState.ENDED) {
+            isRecording = false;
+            if (logInterval) {
+              clearInterval(logInterval);
+              logInterval = null;
+            }
+            saveCsvResults();
+            setVideoDebug("Video ended. Webcam recording remains active until the researcher stops it.");
+          }
+        },
+        onError: function (e) {
+          setVideoDebug("YouTube error code: " + e.data);
+          showVideoLoading("Unable to play video");
+          showVideoError("YouTube error code: " + e.data + ". This often means the video ID is invalid or embedding is disabled for that video.");
+        }
+      }
+    });
+  };
+
+  window.addEventListener("keydown", (e) => {
+    const display = document.getElementById("manual-status");
+    if (e.key === "ArrowUp") {
+      manualEngagement = 1;
+      display.innerText = "ENGAGED (↑)";
+      display.className = "status-on";
+    } else if (e.key === "ArrowDown") {
+      manualEngagement = 0;
+      display.innerText = "LOOKED AWAY (↓)";
+      display.className = "status-off";
+    }
+  });
+
+  async function init() {
+    try {
+      const filesetResolver = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+      );
+
+      faceDetector = await FaceDetector.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"
+        },
+        runningMode: "VIDEO",
+        minDetectionConfidence: 0.5
+      });
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 15, max: 15 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      cameraStream = stream;
+
+      const camVideo = document.getElementById("camVideo");
+      camVideo.srcObject = stream;
+      await camVideo.play();
+
+      document.getElementById("init-msg").innerText = "Trackers Ready.";
+      document.getElementById("startBtn").style.display = "block";
+
+      startFaceLoop();
+      loadYouTubeApi();
+    } catch (err) {
+      document.getElementById("init-msg").innerText = "❌ Init failed: " + err.message;
+    }
+  }
+
+  function startFaceLoop() {
+    const video = document.getElementById("camVideo");
+
+    function detect() {
+      if (video.readyState >= 2 && faceDetector) {
+        const result = faceDetector.detectForVideo(video, performance.now());
+        const detections = result?.detections || [];
+
+        if (detections.length > 0) {
+          const d = detections[0];
+          let symmetry = 1.0;
+
+          if (d.keypoints && d.keypoints.length >= 3) {
+            const distR = Math.hypot(d.keypoints[2].x - d.keypoints[0].x, d.keypoints[2].y - d.keypoints[0].y);
+            const distL = Math.hypot(d.keypoints[2].x - d.keypoints[1].x, d.keypoints[2].y - d.keypoints[1].y);
+            symmetry = Math.min(distL, distR) / Math.max(distL, distR);
+          }
+
+          faceState = {
+            detected: 1,
+            count: detections.length,
+            width: Math.round(d.boundingBox.width),
+            height: Math.round(d.boundingBox.height),
+            confidence: d.categories[0].score.toFixed(3),
+            symmetry: symmetry.toFixed(3),
+            centered: (d.keypoints[2].x > 0.3 && d.keypoints[2].x < 0.7) ? 1 : 0
+          };
+
+          document.getElementById("dbgFace").innerText = "YES";
+          document.getElementById("dbgSym").innerText = faceState.symmetry;
+        } else {
+          faceState = { detected: 0, centered: 0, count: 0, width: 0, height: 0, confidence: 0, symmetry: 0 };
+          document.getElementById("dbgFace").innerText = "NO";
+          document.getElementById("dbgSym").innerText = "--";
+        }
+      }
+
+      requestAnimationFrame(detect);
+    }
+
+    detect();
+  }
+
+  window.initExperience = async function () {
+    document.getElementById("overlay").style.display = "none";
+
+    await webgazer
+      .setRegression("ridge")
+      .setGazeListener((data) => {
+        if (data) {
+          currentGaze = { x: data.x, y: data.y };
+          updateOnScreenStatus();
+        }
+      })
+      .begin();
+
+    if (webgazer.applyKalmanFilter) {
+      webgazer.applyKalmanFilter(true);
+    }
+
+    webgazer.showVideo(false).showPredictionPoints(true);
+
+    document.getElementById("game-area").style.display = "block";
+    spawnPoint();
+  };
+
+  function updateOnScreenStatus() {
+    const onScreen =
+      currentGaze.x >= 0 &&
+      currentGaze.x <= window.innerWidth &&
+      currentGaze.y >= 0 &&
+      currentGaze.y <= window.innerHeight;
+
+    const span = document.getElementById("disp-screen");
+    span.innerText = onScreen ? "IN" : "OUT";
+    span.className = onScreen ? "status-on" : "status-off";
+  }
+
+  function spawnPoint() {
+    const area = document.getElementById("game-area");
+    area.querySelectorAll(".fish-target").forEach(el => el.remove());
+
+    const activePoints = isBonusRound ? bonusPoints : points;
+
+    if (currentPointIndex >= activePoints.length) {
+      if (!isBonusRound) triggerCountdown();
+      else showVictoryPopup();
+      return;
+    }
+
+    const [x, y] = activePoints[currentPointIndex];
+    const t = document.createElement("div");
+    t.className = "fish-target fish-red";
+    t.innerHTML = "🐠";
+    t.style.left = x + "%";
+    t.style.top = y + "%";
+
+    setTimeout(() => {
+      t.classList.remove("fish-red");
+      t.classList.add("fish-blue");
+      canClick = true;
+    }, 600);
+
+    t.onclick = () => {
+      if (!canClick) return;
+
+      clickCount++;
+      if (clickCount >= 3) {
+        clickCount = 0;
+        currentPointIndex++;
+        canClick = false;
+        spawnPoint();
+      } else {
+        t.style.transform = `translate(-50%, -50%) scale(${1 + clickCount * 0.3})`;
+      }
+    };
+
+    area.appendChild(t);
+  }
+
+  function triggerCountdown() {
+    const cd = document.getElementById("countdown-overlay");
+    document.getElementById("game-instr").innerHTML = "<b>Get ready to STARE!</b>";
+    cd.style.display = "flex";
+
+    let c = 3;
+    const itv = setInterval(() => {
+      c--;
+      if (c > 0) cd.innerText = c;
+      else if (c === 0) cd.innerText = "STARE!";
+      else {
+        clearInterval(itv);
+        cd.style.display = "none";
+        startBoss();
+      }
+    }, 1000);
+  }
+
+  function startBoss() {
+    const boss = document.getElementById("boss-fish");
+    document.getElementById("game-instr").innerHTML = "<b>LOOK AT THE SQUID!</b>";
+    boss.classList.add("boss-active");
+
+    let samples = [];
+    const stageBox = document.getElementById("stage").getBoundingClientRect();
+    const targetX = stageBox.left + (stageBox.width / 2);
+    const targetY = stageBox.top + (stageBox.height / 2);
+
+    const checkInterval = setInterval(() => {
+      samples.push(
+        Math.sqrt(
+          Math.pow(currentGaze.x - targetX, 2) +
+          Math.pow(currentGaze.y - targetY, 2)
+        )
+      );
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(checkInterval);
+
+      const avgDist = samples.reduce((a, b) => a + b, 0) / samples.length;
+      finalAccuracy = Math.max(0, Math.min(100, 100 - (avgDist / 4.5)));
+
+      boss.classList.remove("boss-active");
+
+      if (finalAccuracy < 70 && !isBonusRound) {
+        isBonusRound = true;
+        currentPointIndex = 0;
+        document.getElementById("game-instr").innerHTML = "<b>🌟 BONUS ROUND! 🌟</b>";
+        spawnPoint();
+      } else {
+        showVictoryPopup();
+      }
+    }, 4000);
+  }
+
+  function showVictoryPopup() {
+    document.getElementById("game-instr").style.display = "none";
+    document.getElementById("final-score-display").innerText = Math.round(finalAccuracy);
+    document.getElementById("victory-modal").style.display = "block";
+  }
+
+  window.closeVictory = function () {
+    document.getElementById("victory-modal").style.display = "none";
+    document.getElementById("game-area").style.display = "none";
+    document.getElementById("video-area").style.display = "block";
+
+    if (window.webgazer) {
+      webgazer.showPredictionPoints(false);
+    }
+
+    showVideoLoading("Loading video...");
+    startVideoSafely();
+  };
+
+  function startVideoSafely() {
+    const maxWaitMs = 12000;
+    const intervalMs = 250;
+    let waited = 0;
+
+    setVideoDebug("Waiting for YouTube player readiness...");
+
+    const timer = setInterval(() => {
+      if (player && youtubeApiLoaded && youtubePlayerReady && typeof player.playVideo === "function") {
+        clearInterval(timer);
+
+        try {
+          setVideoDebug("Calling playVideo()...");
+          player.playVideo();
+        } catch (err) {
+          setVideoDebug("playVideo() failed: " + err.message);
+          showVideoLoading("Unable to start video");
+          showVideoError("The player exists, but playVideo() failed.");
+        }
+        return;
+      }
+
+      waited += intervalMs;
+
+      if (waited >= maxWaitMs) {
+        clearInterval(timer);
+        setVideoDebug(`Timeout. apiLoaded=${youtubeApiLoaded}, playerExists=${!!player}, playerReady=${youtubePlayerReady}, ytId=${YT_ID}`);
+        showVideoLoading("Video failed to load");
+        showVideoError("The YouTube player was not ready in time. Check the video ID and whether embedding is allowed.");
+      }
+    }, intervalMs);
+  }
+
+  function logRow() {
+    if (!isRecording || !player) return;
+
+    try {
+      const stage = document.getElementById("stage").getBoundingClientRect();
+      const nx = (currentGaze.x - stage.left) / stage.width;
+      const ny = (currentGaze.y - stage.top) / stage.height;
+
+      let vTime = -1;
+      try { vTime = player.getCurrentTime(); } catch (e) {}
+
+      csvData.push([
+        new Date().toISOString(),
+        SESSION_ID,
+        PID,
+        VID,
+        YT_ID,
+        Number(vTime).toFixed(3),
+        Number(nx).toFixed(4),
+        Number(ny).toFixed(4),
+        (nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1 ? 1 : 0),
+        faceState.detected,
+        faceState.centered,
+        faceState.count,
+        faceState.width,
+        faceState.height,
+        faceState.confidence,
+        faceState.symmetry,
+        Number(finalAccuracy).toFixed(1),
+        manualEngagement
+      ]);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  window.terminateSession = function () {
+    if (logInterval) {
+      clearInterval(logInterval);
+      logInterval = null;
+    }
+
+    isRecording = false;
+    stopWebcamRecordingInternal();
+
+    if (window.webgazer) {
+      webgazer.pause();
+    }
+
+    saveCsvResults();
+    alert("Saved as: " + FULL_FILENAME);
+  };
+
+  init();
+</script>
+</body>
+</html>
