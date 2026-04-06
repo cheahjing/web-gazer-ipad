@@ -2,16 +2,15 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Bird Study: Research Grade Logger</title>
+  <title>EduContent: Attention Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/webgazer@2.1.1/dist/webgazer.min.js"></script>
 
   <style>
-    /* Codex edit: readable default font */
     body {
       margin: 0;
       padding: 0;
       background-color: #f8fbff;
-      font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", Arial, sans-serif;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
       overflow: hidden;
     }
 
@@ -26,8 +25,8 @@
 
     #stage {
       position: relative;
-      width: min(85vw, 1180px);
-      height: min(80vh, 820px);
+      width: 85%;
+      height: 80%;
       background: #ffffff;
       border: 8px solid #0077be;
       border-radius: 25px;
@@ -139,7 +138,6 @@
       padding: 10px 20px;
       z-index: 2147483646;
       display: flex;
-      flex-wrap: wrap;
       gap: 20px;
       font-family: monospace;
       font-size: 11px;
@@ -219,72 +217,6 @@
       max-width: 85%;
       line-height: 1.4;
     }
-
-    /* Codex edit: tablet/iPad sizing */
-    @media (max-width: 1024px) {
-      #stage {
-        width: min(92vw, 920px);
-        height: min(64vh, 620px);
-        border-width: 6px;
-        border-radius: 18px;
-      }
-
-      #game-instr {
-        top: 10px;
-        font-size: 20px;
-        padding: 0 12px;
-        box-sizing: border-box;
-      }
-
-      #boss-fish {
-        font-size: 110px;
-      }
-
-      #countdown-overlay {
-        font-size: 110px;
-      }
-
-      .fish-target {
-        width: 92px;
-        height: 92px;
-        font-size: 54px;
-      }
-
-      #victory-modal {
-        width: min(82vw, 460px);
-        padding: 28px 22px;
-        border-width: 8px;
-        box-sizing: border-box;
-      }
-
-      #debug-bar {
-        gap: 10px 14px;
-        padding: 8px 12px;
-        font-size: 10px;
-      }
-
-      #overlay h1 {
-        font-size: 30px;
-        margin: 0 18px 12px;
-      }
-
-      #overlay p {
-        font-size: 18px;
-        margin: 0 18px 16px;
-      }
-    }
-
-    /* Codex edit: smaller-screen sizing */
-    @media (max-width: 768px) {
-      #stage {
-        width: 94vw;
-        height: 60vh;
-      }
-
-      #debug-bar {
-        justify-content: center;
-      }
-    }
   </style>
 </head>
 <body>
@@ -305,15 +237,15 @@
 <div id="app-viewport">
   <div id="stage">
     <div id="game-area" style="display:none; width:100%; height:100%; background:#ffffff; position:relative;">
-      <div id="game-instr">Wait for Blue... then catch it!</div>
+      <div id="game-instr">Wait for the Blue Fish... then catch it!</div>
       <div id="countdown-overlay">3</div>
       <div id="boss-fish">🦑</div>
 
       <div id="victory-modal">
         <div style="font-size: 100px;">🏆</div>
         <h2>GREAT JOB!</h2>
-        <p style="font-size: 24px;">Quality Score: <b id="final-score-display">--</b>%</p>
-        <button onclick="closeVictory()" style="padding: 15px 40px; background: #ffd700; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">WATCH BIRDS 🐦</button>
+        <p style="font-size: 24px;">Score: <b id="final-score-display">--</b>%</p>
+        <button onclick="closeVictory()" style="padding: 15px 40px; background: #ffd700; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">WATCH EPISODE</button>
       </div>
     </div>
 
@@ -330,7 +262,7 @@
   </div>
 
   <div id="overlay">
-    <h1>🌊 Research Session</h1>
+    <h1>🌊 EduContent Session</h1>
     <p id="init-msg">Initializing Trackers...</p>
     <button id="startBtn" onclick="initExperience()" style="display:none; padding:20px 60px; font-size:1.5rem; cursor:pointer; background:#0077be; color:white; border:none; border-radius:50px; font-weight:bold;">START</button>
   </div>
@@ -362,9 +294,6 @@
   const DRIVE_FOLDER_ID = params.get("driveFolderId") || "";
   const CSV_FOLDER_ID = params.get("csvFolderId") || DRIVE_FOLDER_ID;
   const WEBCAM_FOLDER_ID = params.get("webcamFolderId") || DRIVE_FOLDER_ID;
-  const IS_IPAD_BROWSER =
-    /iPad/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const SESSION_ID = generateSessionId();
   const FULL_FILENAME = `${PID}_${VID}_${SESSION_ID}`;
 
@@ -512,11 +441,6 @@
     const blob = new Blob(webcamChunks, { type: webcamMimeType || "video/webm" });
     downloadBlob(blob, `${FULL_FILENAME}_webcam.${extension}`);
 
-    if (IS_IPAD_BROWSER) {
-      console.log("iPad detected. Webcam recording saved locally only.");
-      return;
-    }
-
     if (!WEBCAM_FOLDER_ID || webcamUploadAttempted) return;
 
     webcamUploadAttempted = true;
@@ -535,25 +459,15 @@
     csvSaved = true;
 
     const csvContent = csvData.map(e => e.join(",")).join("\n");
-    const csvBlob = new Blob([csvContent], { type: "text/csv" });
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    downloadBlob(blob, `${FULL_FILENAME}.csv`);
 
-    if (!CSV_FOLDER_ID) {
-      console.warn("CSV upload skipped because no csvFolderId or driveFolderId was provided.");
-      setVideoDebug("CSV upload skipped. Saving CSV locally.");
-      downloadBlob(csvBlob, `${FULL_FILENAME}.csv`);
-      return;
-    }
-
-    console.log("Uploading CSV to Drive folder:", CSV_FOLDER_ID);
-    setVideoDebug("Uploading CSV to Drive...");
+    if (!CSV_FOLDER_ID) return;
 
     uploadCsvToAppsScript(csvContent).then(() => {
       console.log("CSV upload sent for " + FULL_FILENAME);
-      setVideoDebug("CSV upload sent.");
     }).catch((err) => {
       console.error("CSV upload failed", err);
-      setVideoDebug("CSV upload failed. Saving CSV locally.");
-      downloadBlob(csvBlob, `${FULL_FILENAME}.csv`);
     });
   }
 
