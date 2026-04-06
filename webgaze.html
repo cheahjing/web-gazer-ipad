@@ -6,30 +6,58 @@
   <script src="https://cdn.jsdelivr.net/npm/webgazer@2.1.1/dist/webgazer.min.js"></script>
 
   <style>
+    /* Codex edit: readable default font */
+    :root {
+      --viewport-height: 100dvh;
+      --debug-bar-height: 52px;
+      --stage-border-width: 8px;
+      --stage-radius: 25px;
+      --stage-max-width: 1180px;
+      --stage-max-height: 820px;
+      --stage-width: min(84vw, var(--stage-max-width));
+      --stage-height: min(calc(var(--viewport-height) - var(--debug-bar-height) - 28px), var(--stage-max-height));
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
     body {
       margin: 0;
       padding: 0;
       background-color: #f8fbff;
-      font-family: 'Comic Sans MS', cursive, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      -webkit-text-size-adjust: 100%;
       overflow: hidden;
+    }
+
+    body, button, input, select, textarea {
+      font-family: inherit;
+      font-style: normal;
     }
 
     #app-viewport {
       position: relative;
       width: 100vw;
-      height: 100vh;
+      height: var(--viewport-height);
       display: flex;
       align-items: center;
       justify-content: center;
+      padding-top: var(--debug-bar-height);
+      box-sizing: border-box;
     }
 
     #stage {
       position: relative;
-      width: 85%;
-      height: 80%;
+      width: var(--stage-width);
+      height: var(--stage-height);
+      aspect-ratio: 16 / 9;
+      max-width: 100%;
+      max-height: calc(var(--viewport-height) - var(--debug-bar-height) - 28px);
       background: #ffffff;
-      border: 8px solid #0077be;
-      border-radius: 25px;
+      border: var(--stage-border-width) solid #0077be;
+      border-radius: var(--stage-radius);
       z-index: 10;
       overflow: hidden;
     }
@@ -138,10 +166,13 @@
       padding: 10px 20px;
       z-index: 2147483646;
       display: flex;
+      flex-wrap: wrap;
       gap: 20px;
       font-family: monospace;
       font-size: 11px;
       align-items: center;
+      min-height: var(--debug-bar-height);
+      box-sizing: border-box;
     }
 
     .status-on {
@@ -216,6 +247,87 @@
       font-weight: normal;
       max-width: 85%;
       line-height: 1.4;
+    }
+
+    /* Codex edit: tablet/iPad sizing */
+    @media (max-width: 1180px) {
+      :root {
+        --debug-bar-height: 64px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      :root {
+        --stage-border-width: 6px;
+        --stage-radius: 18px;
+        --stage-width: min(90vw, 920px);
+        --stage-height: min(calc(var(--viewport-height) - var(--debug-bar-height) - 24px), 600px);
+      }
+
+      #game-instr {
+        top: 10px;
+        font-size: 20px;
+        padding: 0 12px;
+        box-sizing: border-box;
+      }
+
+      #boss-fish {
+        font-size: 110px;
+      }
+
+      #countdown-overlay {
+        font-size: 110px;
+      }
+
+      .fish-target {
+        width: 92px;
+        height: 92px;
+        font-size: 54px;
+      }
+
+      #victory-modal {
+        width: min(82vw, 460px);
+        padding: 28px 22px;
+        border-width: 8px;
+        box-sizing: border-box;
+      }
+
+      #debug-bar {
+        gap: 10px 14px;
+        padding: 8px 12px;
+        font-size: 10px;
+      }
+
+      #overlay h1 {
+        font-size: 30px;
+        margin: 0 18px 12px;
+      }
+
+      #overlay p {
+        font-size: 18px;
+        margin: 0 18px 16px;
+      }
+    }
+
+    @media (max-width: 1024px) and (orientation: landscape) {
+      :root {
+        --debug-bar-height: 72px;
+        --stage-width: min(82vw, 900px);
+        --stage-height: min(calc(var(--viewport-height) - var(--debug-bar-height) - 16px), 540px);
+      }
+    }
+
+    /* Codex edit: smaller-screen sizing */
+    @media (max-width: 768px) {
+      :root {
+        --debug-bar-height: 88px;
+        --stage-width: 94vw;
+        --stage-height: min(calc(var(--viewport-height) - var(--debug-bar-height) - 16px), 60vh);
+      }
+
+      #debug-bar {
+        justify-content: center;
+      }
     }
   </style>
 </head>
@@ -294,6 +406,11 @@
   const DRIVE_FOLDER_ID = params.get("driveFolderId") || "";
   const CSV_FOLDER_ID = params.get("csvFolderId") || DRIVE_FOLDER_ID;
   const WEBCAM_FOLDER_ID = params.get("webcamFolderId") || DRIVE_FOLDER_ID;
+  const IS_IPAD_BROWSER =
+    /iPad/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const DEVICE_ORIENTATION = globalThis.screen?.orientation?.type || (window.innerWidth > window.innerHeight ? "landscape" : "portrait");
+  const CAMERA_MOUNT = params.get("cameraMount") || (IS_IPAD_BROWSER && window.innerWidth > window.innerHeight ? "side-landscape" : "top-center");
   const SESSION_ID = generateSessionId();
   const FULL_FILENAME = `${PID}_${VID}_${SESSION_ID}`;
 
@@ -305,6 +422,8 @@
     "participant_id",
     "video_id",
     "youtube_id",
+    "device_orientation",
+    "camera_mount",
     "video_time",
     "gaze_x",
     "gaze_y",
@@ -342,6 +461,7 @@
   let webcamMimeType = "";
   let webcamUploadAttempted = false;
   let csvSaved = false;
+  let localBackupTriggered = false;
 
   const points = [[15,15],[85,15],[50,15],[15,50],[50,50],[85,50],[15,85],[50,85],[85,85]];
   const bonusPoints = [[12,12], [88,12], [12,88], [88,88]];
@@ -376,6 +496,16 @@
     link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+
+  function triggerLocalBackup(blob, filename) {
+    try {
+      downloadBlob(blob, filename);
+      return true;
+    } catch (err) {
+      console.warn("Local backup download could not be triggered.", err);
+      return false;
+    }
   }
 
   function blobToBase64(blob) {
@@ -439,7 +569,8 @@
 
     const extension = webcamMimeType.includes("mp4") ? "mp4" : "webm";
     const blob = new Blob(webcamChunks, { type: webcamMimeType || "video/webm" });
-    downloadBlob(blob, `${FULL_FILENAME}_webcam.${extension}`);
+    const webcamFileName = `${FULL_FILENAME}_webcam.${extension}`;
+    const localBackupStarted = triggerLocalBackup(blob, webcamFileName);
 
     if (!WEBCAM_FOLDER_ID || webcamUploadAttempted) return;
 
@@ -447,10 +578,12 @@
 
     try {
       await uploadWebcamToAppsScript(blob, extension);
-      alert("Webcam recording saved locally and upload was sent to Google Drive.");
+      alert(localBackupStarted
+        ? "Webcam recording upload was sent to Google Drive and a local backup download was started."
+        : "Webcam recording upload was sent to Google Drive. Local backup download could not be started automatically in this browser.");
     } catch (err) {
       console.error("Webcam upload failed", err);
-      alert("Webcam recording was saved locally, but Drive upload failed: " + err.message);
+      alert("Webcam upload to Google Drive failed. Local backup will be used instead: " + err.message);
     }
   }
 
@@ -459,15 +592,32 @@
     csvSaved = true;
 
     const csvContent = csvData.map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    downloadBlob(blob, `${FULL_FILENAME}.csv`);
+    const csvBlob = new Blob([csvContent], { type: "text/csv" });
+    const csvFileName = `${FULL_FILENAME}.csv`;
+    const startLocalBackupOnce = () => {
+      if (localBackupTriggered) return;
+      localBackupTriggered = true;
+      triggerLocalBackup(csvBlob, csvFileName);
+    };
 
-    if (!CSV_FOLDER_ID) return;
+    if (!CSV_FOLDER_ID) {
+      console.warn("CSV upload skipped because no csvFolderId or driveFolderId was provided.");
+      setVideoDebug("CSV upload skipped. Starting local CSV backup.");
+      startLocalBackupOnce();
+      return;
+    }
+
+    console.log("Uploading CSV to Drive folder:", CSV_FOLDER_ID);
+    setVideoDebug("Uploading CSV to Drive...");
 
     uploadCsvToAppsScript(csvContent).then(() => {
       console.log("CSV upload sent for " + FULL_FILENAME);
+      setVideoDebug("CSV upload sent. Starting local CSV backup.");
+      startLocalBackupOnce();
     }).catch((err) => {
       console.error("CSV upload failed", err);
+      setVideoDebug("CSV upload failed. Starting local CSV backup.");
+      startLocalBackupOnce();
     });
   }
 
@@ -915,6 +1065,8 @@
         PID,
         VID,
         YT_ID,
+        DEVICE_ORIENTATION,
+        CAMERA_MOUNT,
         Number(vTime).toFixed(3),
         Number(nx).toFixed(4),
         Number(ny).toFixed(4),
